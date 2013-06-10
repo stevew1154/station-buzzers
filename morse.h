@@ -1,8 +1,8 @@
 #ifndef INCLUDED_morse
 #define INLUDED_morse
 
-#define BUZZER_OFF   0  // set for active high to turn an NPN transistor on
-#define BUZZER_ON  1    // reverse if driving something directly 
+#define BUZZER_ON   0
+#define BUZZER_OFF  1
 
 class MorseBuzzer {
   public:
@@ -28,6 +28,7 @@ class MorseBuzzer {
     unsigned long ref_millis;
     unsigned buzz_time;
     unsigned gap_time;
+    unsigned verbosity;
 };
 
 #endif

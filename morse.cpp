@@ -75,7 +75,8 @@ MorseBuzzer::MorseBuzzer()
 : state(PLAYING_DONE),
   pin(-1),
   text(0),
-  morse(0)
+  morse(0),
+  verbosity(0)
 {
   pinMode(pin, OUTPUT);
   digitalWrite(pin, BUZZER_OFF);
@@ -112,7 +113,11 @@ MorseBuzzer::next_char()
     byte curr_char = (*text++) & 0x7f;
     if (curr_char == '\0')
     {
-      Serial.println("morse eom");
+      if (verbosity > 0)
+      {
+        Serial.println("morse eom");
+      }
+      
       // Natural end of message so we are done
       digitalWrite(pin, BUZZER_OFF);
       state = PLAYING_DONE;
@@ -128,11 +133,14 @@ MorseBuzzer::next_char()
       continue;
     }
   
-    Serial.print("morse.next_char() '");
-    Serial.print(static_cast<char>(curr_char));
-    Serial.print("' -> ");
-    Serial.println(morse);
-
+    if (verbosity > 0)
+    {
+      Serial.print("morse.next_char() '");
+      Serial.print(static_cast<char>(curr_char));
+      Serial.print("' -> ");
+      Serial.println(morse);
+    }
+    
     // Start the first bit of the new character  
     return next_morse_bit(); 
   }
@@ -184,9 +192,12 @@ MorseBuzzer::next_morse_bit()
   digitalWrite(pin, BUZZER_ON);
   state = PLAYING_BUZZ;
   ref_millis = millis();
-  Serial.print(ref_millis);
-  Serial.print(" morse on for ");
-  Serial.println(buzz_time);
+  if (verbosity > 1)
+  {
+    Serial.print(ref_millis);
+    Serial.print(" morse on for ");
+    Serial.println(buzz_time);
+  }
   return true;
 }
 
@@ -195,7 +206,8 @@ MorseBuzzer::still_playing()
 {
   if (state == PLAYING_DONE)
   {
-    Serial.println("morse -- playing done");
+    if (verbosity > 0)
+      Serial.println("morse -- playing done");
     return false;
   }
 
@@ -211,31 +223,22 @@ MorseBuzzer::still_playing()
       digitalWrite(pin, BUZZER_OFF);
       state = PLAYING_GAP;
       ref_millis = millis();
-      Serial.print(ref_millis);
-      Serial.print(" morse off for ");
-      Serial.println(gap_time);
+      if (verbosity > 1)
+      {
+        Serial.print(ref_millis);
+        Serial.print(" morse off for ");
+        Serial.println(gap_time);
+      }
     }
     return true;
   }
   
   // We are in the gap time, are we completely done?
-  if (0)
-  {
-    Serial.print(millis());
-    Serial.print(" elapsed=");
-    Serial.print(elapsed);
-    Serial.print(" gap=");
-    Serial.println(gap_time);
-  }
-  
   if (elapsed < gap_time)
     return true;
   
   // Time to move to next bit
-  Serial.print(millis());
-  Serial.print(" calling next_morse_bit() -> ");
   bool result= next_morse_bit();
-  Serial.println(result);
   return result;
 }
 
