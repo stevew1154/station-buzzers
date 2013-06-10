@@ -1,28 +1,23 @@
+// station_states.h -- prototypes for the externally visible state machine functions of station_buzzers
+//   Copyright (c) 2013, Stephen Paul Williams <spwilliams@gmail.com>
+//
+// This program is free software; you can redistribute it and/or modify it under the terms of
+// the GNU General Public License as published by the Free Software Foundation; either version
+// 2 of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with this program;
+// if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
+
 #ifndef INCLUDED_station_states
 #define INCLDUED_stations_states
 
-#ifndef INCLUDED_station_info
-#include "station_info.h"
-#endif
+void init_station_states();
 
-typedef void (*Enter_Callback)(Station_Info *station);
-typedef void (*State_Callback)(Station_Info *station);
-typedef void (*Exit_Callback)(Station_Info *station);
-
-struct State_Callback_Table {
-  Station_States state;   // to verify correctness of table
-  Enter_Callback enter_callback;
-  State_Callback state_callback;
-  Exit_Callback  exit_callback;
-};
-
-void 
-goto_state(Station_Info *station, Station_States next_state);
-
-void
-do_current_state(Station_Info *station);
-
-void
-check_for_ringers();
+void run_station_states();
 
 #endif

@@ -1,5 +1,53 @@
+// station_state.cpp -- state machine and transition functions or station_buzzers
+//   Copyright (c) 2013, Stephen Paul Williams <spwilliams@gmail.com>
+//
+// This program is free software; you can redistribute it and/or modify it under the terms of
+// the GNU General Public License as published by the Free Software Foundation; either version
+// 2 of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with this program;
+// if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
+
 #include "station_states.h"
+#include "station_info.h"
 #include "morse.h"
+
+// Function callback types for the enter / state / exit conditions of each state
+typedef void (*Enter_Callback)(Station_Info *station);
+typedef void (*State_Callback)(Station_Info *station);
+typedef void (*Exit_Callback)(Station_Info *station);
+
+// The structure definition for the state table itself.
+struct State_Callback_Table {
+  Station_States state;   // to verify correctness of table
+  Enter_Callback enter_callback;
+  State_Callback state_callback;
+  Exit_Callback  exit_callback;
+};
+
+// current_ringer: holds a pointer to the station that is currently ringing, if any.
+static Station_Info *current_ringer = 0;
+
+// next_ringer: holds a pointer to whichever station in the RING_WAITING state should go
+// next.  This will typically be the one that has been waiting longest, but a newly called
+// stations will sneak in and go first.
+static Station_Info *next_ringer = 0;
+
+// last_ring_time: the mills() value when the most recent ringing station completed ringing
+static unsigned long last_ring_time = 0;
+
+// ring_silence_interval: the minimum interval between completion (or interruption) of one ring
+// and starting the next.
+static unsigned ring_silence_interval = 2000;
+
+// Forward declaration for the state transition function.
+static void goto_state(Station_Info *station, enum Station_States next_state);
+
 
 // IDLE state.  We wait here for the local phone to go off-hook or for the station to be called.
 void 
@@ -17,17 +65,7 @@ idle_state(struct Station_Info *station)
 {
   if (station->called())
   {
-    for (int ii = 0; ii < num_stations; ii++)
-    {
-      if (stations[ii].state == RING_PLAYING) 
-      {
-        goto_state(station, RING_WAITING);
-        return;
-      }
-    }
-
-    // No other station currently playing, so play the ring
-    goto_state(station, RING_PLAYING);
+    goto_state(station, RING_WAITING);
   }
   else if (station->answered())
   {
@@ -40,32 +78,25 @@ idle_exit(struct Station_Info *station)
 {
 }
 
+
+// RING_WAITING state: here we have been called and not yet answered, but someother station is playing
+
 void 
 ring_waiting_enter(struct Station_Info *station)
 {
-  if (station->state == IDLE)
-  {
-    // Make us the oldest station waiting
-    station->ring_priority = -1;
-    for (int ii = 0; ii < num_stations; ii++)
-    {
-      if(stations[ii].ring_priority >= station->ring_priority)
-        station->ring_priority = stations[ii].ring_priority + 1;
-    }
-  }
-  else
-  {
-    // Make every other station that is currently RING_WAITING be one step older and pick the oldest
-    for (int ii = 0; ii < num_stations; ii++)
-    {
-      if ((stations[ii].state == RING_WAITING) && (stations[ii].ring_priority >= 0))
-      {
-        stations[ii].ring_priority += 1;
-      }
-    }
+  // Record time we started waiting
+  unsigned long now = millis();
+  station->wait_enter_time = now;
 
-    // Then make this station be the newest one waiting
-    station->ring_priority = 0;
+  // Make us one minute older if we are coming in from IDLE
+  if (station->state == IDLE)
+    station->wait_enter_time = (now > 60000) ? now - 60000 : 0;
+  
+  // See if we could be next to ring
+  if ((next_ringer == 0) || ((now - next_ringer->wait_enter_time) <
+                             (now - station->wait_enter_time)))
+  {
+    next_ringer = station;
   }
 }
 
@@ -87,6 +118,28 @@ ring_waiting_state(struct Station_Info *station)
 void 
 ring_waiting_exit(struct Station_Info *station)
 {
+  // We are leaving RING_WAITING so pick the next station to ring, if any
+  unsigned long now = millis();
+  unsigned next_age = 0;
+  next_ringer = 0;
+  
+  for (int ii = 0; ii < num_stations; ii++)
+  {
+    if (stations[ii].state != RING_WAITING)
+      continue;
+          
+    // We cannot be the next ringer
+    if (&stations[ii] == station)
+      continue;
+      
+    unsigned station_age = now - stations[ii].wait_enter_time;  
+    if ((next_ringer == 0) || (station_age > next_age))
+    {
+      // This one is a candidate for next_ringer
+      next_ringer = &stations[ii];
+      next_age = station_age;
+    }
+  }
 }
 
 MorseBuzzer morse;
@@ -94,6 +147,7 @@ MorseBuzzer morse;
 void 
 ring_playing_enter(struct Station_Info *station)
 {
+  current_ringer = station;
   morse.start(station->pin_buzzer, station->station_code);
 }
 
@@ -114,17 +168,16 @@ ring_playing_state(struct Station_Info *station)
     return;
   }
 
-  if (morse.still_playing())
-    return;
-    
-  goto_state(station, RING_WAITING);
+  if (!morse.still_playing())
+    goto_state(station, RING_WAITING);
 }
 
 void 
 ring_playing_exit(struct Station_Info *station)
 {
-  // Clean up anything allocated in ring_playing_enter
   morse.cancel();
+  current_ringer = 0;
+  last_ring_time = millis();
 }
 
 void 
@@ -147,7 +200,6 @@ talking_exit(struct Station_Info *station)
 void 
 hangup_wait_enter(struct Station_Info *station)
 {
-
 }
 
 void 
@@ -206,37 +258,33 @@ goto_state(struct Station_Info *station, Station_States next_state)
 }
 
 void
-do_current_state(Station_Info *station)
+init_station_states()
 {
-  delay(10);
-  State_Callback state_cb = callback_table[station->state].state_callback;
-  (*state_cb)(station);
+  for (int ii = 0 ; ii < num_stations; ii++)
+  {
+    Station_Info *station = &stations[ii];
+    idle_enter(station);
+    station->state = IDLE;
+  }
 }
-
 
 void
-check_for_ringers()
+run_station_states()
 {
-  // Look for oldest station waiting to ring.
-  int ring_priority = -1;
-  int ring_idx = -1;
+  // Run each station through its state machine
   for (int ii = 0; ii < num_stations; ii++)
   {
-    if (stations[ii].state == RING_PLAYING)
-      return;
-      
-    if (stations[ii].state == RING_WAITING)
-    {
-      if (stations[ii].ring_priority > ring_priority)
-      {
-        // This one has been waiting longest
-        ring_idx = ii;
-        ring_priority = stations[ii].ring_priority;
-      }
-    }
+    Station_Info *station = &stations[ii];
+    State_Callback state_cb = callback_table[station->state].state_callback;
+    (*state_cb)(station);
   }
 
-
-  if (ring_idx >= 0)
-    goto_state(&stations[ring_idx], RING_PLAYING);
+  // If there is a "next_ringer", see if we can let it start ringing
+  if ((next_ringer != 0) && (current_ringer == 0) && ((millis() - last_ring_time) > ring_silence_interval))
+  {
+    goto_state(next_ringer, RING_PLAYING);
+  }
 }
+
+
+
