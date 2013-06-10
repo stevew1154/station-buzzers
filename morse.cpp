@@ -1,3 +1,18 @@
+// morse.cpp -- plays morse code through a buzzer attached to an Arduino pin
+//   Copyright (c) 2013, Stephen Paul Williams <spwilliams@gmail.com>
+//
+// This program is free software; you can redistribute it and/or modify it under the terms of
+// the GNU General Public License as published by the Free Software Foundation; either version
+// 2 of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with this program;
+// if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
+
 #include "morse.h"
 #include "Arduino.h"
 
@@ -170,24 +185,18 @@ MorseBuzzer::next_morse_bit()
       gap_time  = dot_time;
       break;
     case 'L':
-      buzz_time = 9*dot_time;
+      buzz_time = 5*dot_time;
       gap_time  = dot_time;
       break;
     case '0':
-      buzz_time = 15*dot_time;
+      buzz_time = 7*dot_time;
       gap_time  = dot_time;
       break;
   }
 
   // If this is the last morse bit of this character, add the inter-character gap to the off_time
   if (*morse == '\0')
-  {  
-    // If this is the last bit of the last character, add the inter-station delay
-    if (*text == '\0')
-      gap_time += 1000;
-    else
-      gap_time += 3*dot_time;
-  }
+     gap_time = 3*dot_time;
 
   digitalWrite(pin, BUZZER_ON);
   state = PLAYING_BUZZ;
