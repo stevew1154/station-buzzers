@@ -1,9 +1,6 @@
 #include "station_states.h"
 #include "morse.h"
 
-
-
-
 // IDLE state.  We wait here for the local phone to go off-hook or for the station to be called.
 void 
 idle_enter(struct Station_Info *station)
@@ -243,6 +240,3 @@ check_for_ringers()
   if (ring_idx >= 0)
     goto_state(&stations[ring_idx], RING_PLAYING);
 }
-
-
-

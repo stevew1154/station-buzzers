@@ -1,8 +1,6 @@
 #ifndef INCLUDED_station_info
 #define INCLUDED_station_info
 
-#include "arduino.h"
-
 #define STATION_CALLED    0   // Value on pin_called when station is called
 #define STATION_ANSWERED  0   // Value on pin_aswered when station has answered
 

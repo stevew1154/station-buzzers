@@ -8,8 +8,7 @@ struct Station_Info stations[] = {
   {   IDLE,     A2,       10,    4, "KY" }, // Keyser
   {   IDLE,     A3,       11,    5, "CO" }, // McKenxie
   {   IDLE,     A4,       12,    6, "P"  }, // Piedmont
-#if 0
-#endif
 };
 const int num_stations = sizeof(stations)/sizeof(stations[0]);
+
 
