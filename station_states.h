@@ -1,5 +1,5 @@
 // station_states.h -- prototypes for the externally visible state machine functions of station_buzzers
-//   Copyright (c) 2013, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -14,7 +14,7 @@
 // Boston, MA 02110-1301, USA.
 
 #ifndef INCLUDED_station_states
-#define INCLDUED_stations_states
+#define INCLDUED_station_states
 
 void init_station_states();
 

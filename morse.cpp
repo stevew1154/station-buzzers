@@ -1,5 +1,5 @@
 // morse.cpp -- plays morse code through a buzzer attached to an Arduino pin
-//   Copyright (c) 2013, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -28,6 +28,7 @@ initialize_morse_table()
   {
     for (int ii = 0; ii < 128; ii++)
       morse_table[ii] = 0;
+    morse_table[' '] = " ";
     morse_table['A'] = ".-";
     morse_table['B'] = "-...";
     morse_table['C'] = ".,.";
@@ -87,37 +88,59 @@ initialize_morse_table()
 
 
 MorseBuzzer::MorseBuzzer()
-: state(PLAYING_DONE),
-  pin(-1),
-  text(0),
-  morse(0),
-  verbosity(0)
+: state_(PLAYING_DONE),
+  pin_(-1),
+  active_hi_(true),
+  text_(0),
+  morse_(0),
+  verbosity_(0)
 {
-  pinMode(pin, OUTPUT);
-  digitalWrite(pin, BUZZER_OFF);
   initialize_morse_table();
 }
 
 MorseBuzzer::~MorseBuzzer()
 {
-  digitalWrite(pin, BUZZER_OFF);
+    buzzer_off();
 }
 
 void
-MorseBuzzer::start(int pin, const char *text)
+MorseBuzzer::buzzer_off()
 {
-  this->pin  = pin;
-  this->text = text;
-  this->morse = 0;
-  this->state = PLAYING_DONE;
+  if( pin_ != -1 )
+    digitalWrite( pin_, active_hi_ ? LOW : HIGH );
+}
+
+void
+MorseBuzzer::buzzer_on()
+{
+  if( pin_ != -1 )
+    digitalWrite( pin_, active_hi_ ? HIGH : LOW );
+}
+
+void
+MorseBuzzer::setup( int pin, boolean active_hi )
+{
+  pin_  = pin;
+  active_hi_ = active_hi;
+  pinMode( pin_, OUTPUT );
+  buzzer_off();
+  buzzer_off();
+}
+
+void
+MorseBuzzer::start( const char *text )
+{
+  text_ = text;
+  morse_ = 0;
+  state_ = PLAYING_DONE;
   next_char();
 }
 
 void
 MorseBuzzer::cancel()
 {
-  digitalWrite(pin, BUZZER_OFF);
-  state = PLAYING_DONE;
+  buzzer_off();
+  state_ = PLAYING_DONE;
 }
 
 bool
@@ -125,35 +148,35 @@ MorseBuzzer::next_char()
 {
   while(1)
   {
-    byte curr_char = (*text++) & 0x7f;
+    byte curr_char = (*text_++) & 0x7f;
     if (curr_char == '\0')
     {
-      if (verbosity > 0)
+      if (verbosity_ > 0)
       {
         Serial.println("morse eom");
       }
       
       // Natural end of message so we are done
-      digitalWrite(pin, BUZZER_OFF);
-      state = PLAYING_DONE;
+      buzzer_off();
+      state_ = PLAYING_DONE;
       return false;
     }
     
    
     // Now lookup the Morse pattern for the current character 
-    morse = morse_table[curr_char];
-    if (morse == 0)
+    morse_ = morse_table[curr_char];
+    if (morse_ == 0)
     {
       // No morse patter to match this character, so skip to next
       continue;
     }
   
-    if (verbosity > 0)
+    if (verbosity_ > 0)
     {
       Serial.print("morse.next_char() '");
       Serial.print(static_cast<char>(curr_char));
       Serial.print("' -> ");
-      Serial.println(morse);
+      Serial.println(morse_);
     }
     
     // Start the first bit of the new character  
@@ -164,48 +187,52 @@ MorseBuzzer::next_char()
 bool
 MorseBuzzer::next_morse_bit()
 {
-  char morse_bit = *morse++;
-  switch(morse_bit)
+  char morse_bit = *morse_++;
+  switch( morse_bit )
   {
     case '\0':
       // End of current character
       return next_char();
-      break;
-      
+
+    case ' ':
+      buzz_time_ = 0;
+      gap_time_  = 4*dot_time; // we will add 3 below
+      break;      
     case '.':
-      buzz_time = dot_time;
-      gap_time  = dot_time;
+      buzz_time_ = dot_time;
+      gap_time_  = dot_time;
       break;
     case ',':  // i.e. "dot space"
-      buzz_time = dot_time;
-      gap_time  = 2*dot_time;
+      buzz_time_ = dot_time;
+      gap_time_  = 2*dot_time;
       break;
     case '-':
-      buzz_time = 3*dot_time;
-      gap_time  = dot_time;
+      buzz_time_ = 2*dot_time;
+      gap_time_  = dot_time;
       break;
     case 'L':
-      buzz_time = 5*dot_time;
-      gap_time  = dot_time;
+      buzz_time_ = 4*dot_time;
+      gap_time_  = dot_time;
       break;
     case '0':
-      buzz_time = 7*dot_time;
-      gap_time  = dot_time;
+      buzz_time_ = 5*dot_time;
+      gap_time_  = dot_time;
       break;
   }
 
-  // If this is the last morse bit of this character, add the inter-character gap to the off_time
-  if (*morse == '\0')
-     gap_time = 3*dot_time;
+  // If this is the last morse bit of this character (next bit is nul), add the inter-character gap to the off_time
+  if( *morse_ == '\0' )
+     gap_time_ += 3*dot_time;
 
-  digitalWrite(pin, BUZZER_ON);
-  state = PLAYING_BUZZ;
-  ref_millis = millis();
-  if (verbosity > 1)
+  if( buzz_time_ > 0 )
+    buzzer_on();
+  state_ = PLAYING_BUZZ;
+  ref_millis_ = millis();
+  if (verbosity_ > 1)
   {
-    Serial.print(ref_millis);
+    Serial.print( ref_millis_) ;
     Serial.print(" morse on for ");
-    Serial.println(buzz_time);
+    Serial.println( buzz_time_ );
   }
   return true;
 }
@@ -213,41 +240,40 @@ MorseBuzzer::next_morse_bit()
 bool
 MorseBuzzer::still_playing()
 {
-  if (state == PLAYING_DONE)
+  if (state_ == PLAYING_DONE)
   {
-    if (verbosity > 0)
+    if (verbosity_ > 0)
       Serial.println("morse -- playing done");
     return false;
   }
 
   // Compute time elapsed since our "ref_millis"
-  unsigned elapsed = millis() - ref_millis;
+  unsigned elapsed = millis() - ref_millis_;
     
-  if (state == PLAYING_BUZZ)
+  if (state_ == PLAYING_BUZZ)
   {
-    // We are playing the buz, is it time to turn off?
-    if (elapsed >= buzz_time)
+    // We are playing the buzz, is it time to turn off?
+    if (elapsed >= buzz_time_)
     {
       // Time to turn off
-      digitalWrite(pin, BUZZER_OFF);
-      state = PLAYING_GAP;
-      ref_millis = millis();
-      if (verbosity > 1)
+      buzzer_off();
+      state_ = PLAYING_GAP;
+      ref_millis_ = millis();
+      if (verbosity_ > 1)
       {
-        Serial.print(ref_millis);
+        Serial.print(ref_millis_);
         Serial.print(" morse off for ");
-        Serial.println(gap_time);
+        Serial.println(gap_time_);
       }
     }
     return true;
   }
   
   // We are in the gap time, are we completely done?
-  if (elapsed < gap_time)
+  if (elapsed < gap_time_)
     return true;
   
   // Time to move to next bit
-  bool result= next_morse_bit();
-  return result;
+  return next_morse_bit();
 }
 

@@ -1,5 +1,5 @@
 // morse.h -- plays railroad morse code through a buzzer attached to an Arduino pin
-//   Copyright (c) 2013, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -14,20 +14,22 @@
 // Boston, MA 02110-1301, USA.
 
 #ifndef INCLUDED_morse
-#define INLUDED_morse
+#define INCLUDED_morse
 
-#define BUZZER_ON   0
-#define BUZZER_OFF  1
+#include "Arduino.h"
 
 class MorseBuzzer {
   public:
     MorseBuzzer();
     ~MorseBuzzer();
-    void start(int pin, const char *text);
+    void setup( int pin, boolean active_hi );
+    void start( const char *text );
     void cancel();
     bool still_playing();
 
   private:
+    void buzzer_off();
+    void buzzer_on();
     bool next_char();
     bool next_morse_bit();
     
@@ -35,15 +37,16 @@ class MorseBuzzer {
       PLAYING_DONE,
       PLAYING_BUZZ,
       PLAYING_GAP
-    } state;
-    int pin;
-    const char *text;
-    const char *morse;
+    } state_;
+    int  pin_;
+    boolean active_hi_;
+    const char *text_;
+    const char *morse_;
     
-    unsigned long ref_millis;
-    unsigned buzz_time;
-    unsigned gap_time;
-    unsigned verbosity;
+    unsigned long ref_millis_;
+    unsigned buzz_time_;
+    unsigned gap_time_;
+    unsigned verbosity_;
 };
 
 #endif
