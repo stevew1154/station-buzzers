@@ -1,5 +1,5 @@
 // Station Buzzers -- Arduino sketch to control station buzzers on a model railroad
-//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2017, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -36,30 +36,30 @@
 const char version[] = "v1.1";
 
 class PinFlipper {
-    int           pin;
-    unsigned      interval;
-    int           value;
-    unsigned long last_flip;
+  int           pin;
+  unsigned      interval;
+  int           value;
+  unsigned long last_flip;
 
-  public:
-    PinFlipper(int pin, unsigned interval)
+ public:
+  PinFlipper(int pin, unsigned interval)
       : pin(pin),
         interval(interval),
         value(0),
         last_flip(0)
+  {
+    pinMode(pin, OUTPUT);
+    flip();
+  }
+  void flip()
+  {
+    if ((millis() - last_flip) > interval)
     {
-      pinMode(pin, OUTPUT);
-      flip();
+      value = 1 - value;
+      digitalWrite(pin, value);
+      last_flip = millis();
     }
-    void flip()
-    {
-      if ((millis() - last_flip) > interval)
-      {
-        value = 1 - value;
-        digitalWrite(pin, value);
-        last_flip = millis();
-      }
-    }
+  }
 };
 
 PinFlipper status_led(13, 1000);
@@ -82,4 +82,3 @@ void loop()
 
   delay(10);
 }
-

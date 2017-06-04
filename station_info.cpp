@@ -1,5 +1,5 @@
 // station_info.cpp -- station information table for stations_buzzers.ino
-//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2017, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -17,7 +17,7 @@
 #include "morse.h"
 
 struct Station_Info stations[] = {
-  // state, pulsed_call, called, answered, buzz, active, random_period_sec, code 
+  // state, pulsed_call, called, answered, buzz, active, random_period_sec, code
   {   IDLE,     false,       A0,        8,    2,    LOW,                 0, "ND" }, // Viaduct
   {   IDLE,     true,        A1,        9,    3,    LOW,                 0, "GE" }, // Evitts
   {   IDLE,     false,       A2,       10,    4,    LOW,                 0, "KY" }, // Keyser
@@ -50,10 +50,10 @@ void Station_Info::enter_idle()
 void Station_Info::enter_ring_waiting()
 {
   morse_.cancel();
-  
+
   // Mark the time we entered RING_WAITING
   wait_enter_millis_ = millis();
-  
+
   // If we are moving IDLE->RING_WAITING, make us look artificially old
   // so we will ring next.
   if (state_ == IDLE)
@@ -89,7 +89,7 @@ bool Station_Info::called()
     return millis() > next_call_millis_;
 
   // Debounce the input, looking for when the pin goes active
-  
+
   const bool was_called = is_called_;
   const bool is_called = (digitalRead(pin_called_) == STATION_CALLED);
   const unsigned long now_millis = millis();
@@ -108,7 +108,7 @@ bool Station_Info::called()
     called_millis_ = millis();
     is_called_ = is_called;
     Serial.print(station_code_); Serial.print(" is ");
-    Serial.print(is_called_ ? "called" : "not called"); 
+    Serial.print(is_called_ ? "called" : "not called");
     Serial.println();
   }
 
@@ -131,7 +131,7 @@ bool Station_Info::answered()
     answered_millis_ = millis();
     is_answered_ = is_answered;
     Serial.print(station_code_); Serial.print(" goes ");
-    Serial.print(is_answered ? "off" : "on"); 
+    Serial.print(is_answered ? "off" : "on");
     Serial.print(" hook"); Serial.println();
   }
 
@@ -139,10 +139,7 @@ bool Station_Info::answered()
     is_called_ = false;
     Serial.print(station_code_); Serial.print(" is not called");
     Serial.println();
-  }    
+  }
   // Return the value in the debounced is_answered_ state variable
   return is_answered_;
 }
-
-
-

@@ -1,5 +1,5 @@
 // morse.cpp -- plays morse code through a buzzer attached to an Arduino pin
-//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2017, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -21,7 +21,7 @@ static const unsigned dot_time = 100; // milliseconds
 static const char * morse_table[128];
 bool morse_table_initialized = false;
 
-static void 
+static void
 initialize_morse_table()
 {
   if(! morse_table_initialized)
@@ -55,7 +55,7 @@ initialize_morse_table()
     morse_table['X'] = ".-..";
     morse_table['Y'] = ".,..";
     morse_table['Z'] = "..,.";
-    
+
     morse_table['0'] = "0";
     morse_table['1'] = ".--.";
     morse_table['2'] = "..-..";
@@ -66,7 +66,7 @@ initialize_morse_table()
     morse_table['7'] = "--..";
     morse_table['8'] = "-....";
     morse_table['9'] = "-..-";
-    
+
     morse_table['.'] = "..--..";
     morse_table[','] = ".-.-";
     morse_table['?'] = "-..-.";
@@ -88,19 +88,19 @@ initialize_morse_table()
 
 
 MorseBuzzer::MorseBuzzer()
-: state_(PLAYING_DONE),
-  pin_(-1),
-  active_hi_(true),
-  text_(0),
-  morse_(0),
-  verbosity_(0)
+    : state_(PLAYING_DONE),
+      pin_(-1),
+      active_hi_(true),
+      text_(0),
+      morse_(0),
+      verbosity_(0)
 {
   initialize_morse_table();
 }
 
 MorseBuzzer::~MorseBuzzer()
 {
-    buzzer_off();
+  buzzer_off();
 }
 
 void
@@ -155,22 +155,22 @@ MorseBuzzer::next_char()
       {
         Serial.println("morse eom");
       }
-      
+
       // Natural end of message so we are done
       buzzer_off();
       state_ = PLAYING_DONE;
       return false;
     }
-    
-   
-    // Now lookup the Morse pattern for the current character 
+
+
+    // Now lookup the Morse pattern for the current character
     morse_ = morse_table[curr_char];
     if (morse_ == 0)
     {
       // No morse patter to match this character, so skip to next
       continue;
     }
-  
+
     if (verbosity_ > 0)
     {
       Serial.print("morse.next_char() '");
@@ -178,9 +178,9 @@ MorseBuzzer::next_char()
       Serial.print("' -> ");
       Serial.println(morse_);
     }
-    
-    // Start the first bit of the new character  
-    return next_morse_bit(); 
+
+    // Start the first bit of the new character
+    return next_morse_bit();
   }
 }
 
@@ -197,7 +197,7 @@ MorseBuzzer::next_morse_bit()
     case ' ':
       buzz_time_ = 0;
       gap_time_  = 4*dot_time; // we will add 3 below
-      break;      
+      break;
     case '.':
       buzz_time_ = dot_time;
       gap_time_  = dot_time;
@@ -222,7 +222,7 @@ MorseBuzzer::next_morse_bit()
 
   // If this is the last morse bit of this character (next bit is nul), add the inter-character gap to the off_time
   if( *morse_ == '\0' )
-     gap_time_ += 3*dot_time;
+    gap_time_ += 3*dot_time;
 
   if( buzz_time_ > 0 )
     buzzer_on();
@@ -249,7 +249,7 @@ MorseBuzzer::still_playing()
 
   // Compute time elapsed since our "ref_millis"
   unsigned elapsed = millis() - ref_millis_;
-    
+
   if (state_ == PLAYING_BUZZ)
   {
     // We are playing the buzz, is it time to turn off?
@@ -268,12 +268,11 @@ MorseBuzzer::still_playing()
     }
     return true;
   }
-  
+
   // We are in the gap time, are we completely done?
   if (elapsed < gap_time_)
     return true;
-  
+
   // Time to move to next bit
   return next_morse_bit();
 }
-

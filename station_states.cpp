@@ -1,5 +1,5 @@
 // station_state.cpp -- state machine and transition functions or station_buzzers
-//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2017, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -49,14 +49,14 @@ static void goto_state(Station_Info *station, enum Station_States next_state);
 
 
 // IDLE state.  We wait here for the local phone to go off-hook or for the station to be called.
-void 
+void
 idle_enter(struct Station_Info *station)
 {
   // Set variables for IDLE state
   station->enter_idle();
 }
 
-void 
+void
 idle_state(struct Station_Info *station)
 {
   if (station->called())
@@ -69,20 +69,20 @@ idle_state(struct Station_Info *station)
   }
 }
 
-void 
+void
 idle_exit(struct Station_Info *station)
 {
 }
 
 
 // RING_WAITING state: here we have been called and not yet answered, but some other station is playing
-void 
+void
 ring_waiting_enter(struct Station_Info *station)
 {
   station->enter_ring_waiting();
 }
 
-void 
+void
 ring_waiting_state(struct Station_Info *station)
 {
   // When we are in RING_WAITING, the station should be being CALLED, but not yet ANSWERED
@@ -97,7 +97,7 @@ ring_waiting_state(struct Station_Info *station)
   }
 }
 
-void 
+void
 ring_waiting_exit(struct Station_Info *station)
 {
   // We are leaving RING_WAITING so pick the next station to ring, if any
@@ -105,16 +105,16 @@ ring_waiting_exit(struct Station_Info *station)
     next_ringer = 0;
 }
 
-void 
+void
 ring_playing_enter(struct Station_Info *station)
 {
   current_ringer = station;
   station->enter_ring_playing();
 }
 
-void 
+void
 ring_playing_state(struct Station_Info *station)
-{ 
+{
   if (!station->called())
   {
     // Caller hung up -- go back to IDLE
@@ -134,45 +134,45 @@ ring_playing_state(struct Station_Info *station)
     goto_state(station, station->is_ambience() ? IDLE : RING_WAITING);
 }
 
-void 
+void
 ring_playing_exit(struct Station_Info *station)
 {
   current_ringer = 0;
   last_ring_time = millis();
 }
 
-void 
+void
 talking_enter(struct Station_Info *station)
 {
   station->enter_talking();
 }
 
-void 
+void
 talking_state(struct Station_Info *station)
 {
   if ((!station->called()) || (!station->answered()))
     goto_state(station, HANGUP_WAIT);
 }
 
-void 
+void
 talking_exit(struct Station_Info *station)
 {
 }
 
-void 
+void
 hangup_wait_enter(struct Station_Info *station)
 {
   station->enter_hangup_wait();
 }
 
-void 
+void
 hangup_wait_state(struct Station_Info *station)
 {
   if ((!station->called()) && (!station->answered()))
     goto_state(station, IDLE);
 }
 
-void 
+void
 hangup_wait_exit(struct Station_Info *station)
 {
 }
@@ -193,7 +193,7 @@ const char * const state_names[] = {
   [HANGUP_WAIT]  = "HANGUP_WAIT",
 };
 
-void 
+void
 goto_state(struct Station_Info *station, Station_States next_state)
 {
   Station_States curr_state = station->state();
@@ -206,8 +206,8 @@ goto_state(struct Station_Info *station, Station_States next_state)
     Serial.print(state_names[curr_state]);
     Serial.print("->");
     Serial.println(state_names[next_state]);
-    
-    
+
+
     // Does current state have an exit_callback?
     Exit_Callback exit_cb = callback_table[curr_state].exit_callback;
     if (exit_cb != 0)
@@ -224,15 +224,15 @@ goto_state(struct Station_Info *station, Station_States next_state)
 
 void
 choose_next_ringer()
-{    
+{
   unsigned next_age = 0;
   next_ringer = 0;
   for (int ii = 0; ii < num_stations; ii++)
   {
     if (stations[ii].state() != RING_WAITING)
       continue;
-          
-    const unsigned station_age = stations[ii].waiting_msec();  
+
+    const unsigned station_age = stations[ii].waiting_msec();
     if ((next_ringer == 0) || (station_age > next_age))
     {
       // This one is a candidate for next_ringer
@@ -277,6 +277,3 @@ run_station_states()
     next_ringer = 0;
   }
 }
-
-
-

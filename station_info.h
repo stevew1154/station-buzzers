@@ -1,5 +1,5 @@
 // station_info.h -- structures for managing station information in station_buzzers
-//   Copyright (c) 2013-2014, Stephen Paul Williams <spwilliams@gmail.com>
+//   Copyright (c) 2013-2017, Stephen Paul Williams <spwilliams@gmail.com>
 //
 // This program is free software; you can redistribute it and/or modify it under the terms of
 // the GNU General Public License as published by the Free Software Foundation; either version
@@ -61,7 +61,7 @@ struct Station_Info {
   void enter_talking();
   void enter_hangup_wait();
   unsigned waiting_msec() { return millis() - wait_enter_millis_; }
-private:
+ private:
   void buzzer_off() { digitalWrite( pin_buzzer_, pin_active_ == HIGH ? LOW : HIGH ); }
 };
 
