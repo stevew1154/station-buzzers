@@ -18,9 +18,6 @@
 #include "Arduino.h"
 #include "morse.h"
 
-#define STATION_CALLED    LOW   // Value on pin_called when station is called
-#define STATION_ANSWERED  LOW   // Value on pin_aswered when station has answered
-
 enum Station_States {
   IDLE,
   RING_WAITING, // Station has played ring tone once, waiting to do it again
@@ -30,31 +27,62 @@ enum Station_States {
   LAST_UNUSED_STATE
 };
 
+enum Station_Type {
+  STATION_NORMAL,
+  STATION_MOMENTARY,
+  STATION_AMBIENCE
+};
+
 
 struct Station_Info {
-  Station_States     state_;
-  bool               pulsed_called_;
-  byte               pin_called_;
-  byte               pin_answered_;
-  byte               pin_buzzer_;
-  byte               pin_active_;
-  unsigned           random_period_sec_;
+  //////////////////////////////////////////////////////////////////////////
+  // Fields initialized through the "stations" table in station_buzzers.ino
+  //////////////////////////////////////////////////////////////////////////
+  Station_Type       station_type_;
+
+  byte               buzzer_pin_;       // Arduino pin the buzzer output is connected to
+  byte               buzzer_active_;    // LOW or HIGH
+
+  byte               called_pin_;       // Arduing pin for "called" input (-1 for an ambience station)
+  byte               called_active_;    // LOW or HIGH
+  
+
+  byte               off_hook_pin_;     // Arduino pin for "off_hook" input (-1 for an ambience station)
+  byte               off_hook_active_;  // LOW or HIGH
+
+  uint16_t           timeout_secs_;     // For ambience stations, the basic time between messages
+                                        // For momentary stations, the 
+
   const char * const station_code_;
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Member fields below this point are not initialized in the table, but rather
+  // when enter_idle() is first called
+  //////////////////////////////////////////////////////////////////////////////
+  Station_States     state_;
   unsigned long      wait_enter_millis_;
   unsigned long      next_call_millis_;
   MorseBuzzer        morse_;
-  bool               is_called_;
-  bool               is_answered_;
-  unsigned long      called_millis_;
-  unsigned long      answered_millis_;
 
-  const char * const station_code() { return station_code_; }
-  bool is_ambience() { return random_period_sec_ != 0; }
-  byte pin_buzzer() { return pin_buzzer_; }
+  bool               called_latch_;
+  bool               called_debounce_;
+  unsigned long      called_millis_;
+  
+  bool               off_hook_debounce_;
+  unsigned long      off_hook_millis_;
+
+  //////////////////////////////////////////////////////////////////////////
+  // Member methods
+  //////////////////////////////////////////////////////////////////////////
   Station_States state() { return state_; }
-  bool called();
-  bool answered();
+  const char * const station_code() { return station_code_; }
+  bool is_ambience() { return (station_type_ == STATION_AMBIENCE); }
+  bool is_momentary() { return (station_type_ == STATION_MOMENTARY); }
   bool still_playing() { return morse_.still_playing(); }
+
+  bool called();
+  bool off_hook();
+  
   void enter_idle();
   void enter_ring_waiting();
   void enter_ring_playing();
@@ -62,7 +90,7 @@ struct Station_Info {
   void enter_hangup_wait();
   unsigned waiting_msec() { return millis() - wait_enter_millis_; }
  private:
-  void buzzer_off() { digitalWrite( pin_buzzer_, pin_active_ == HIGH ? LOW : HIGH ); }
+  void buzzer_off() { digitalWrite(buzzer_pin_, (buzzer_active_ == HIGH) ? LOW : HIGH ); }
 };
 
 extern struct Station_Info stations[];

@@ -13,6 +13,7 @@
 // if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 // Boston, MA 02110-1301, USA.
 
+#include <limits.h>
 #include "station_states.h"
 #include "station_info.h"
 
@@ -32,17 +33,13 @@ struct State_Callback_Table {
 // current_ringer: holds a pointer to the station that is currently ringing, if any.
 static Station_Info *current_ringer = 0;
 
-// next_ringer: holds a pointer to whichever station in the RING_WAITING state should go
-// next.  This will typically be the one that has been waiting longest, but a newly called
-// station will sneak in and go first.
-static Station_Info *next_ringer = 0;
-
 // last_ring_time: the mills() value when the most recent ringing station completed ringing
-static unsigned long last_ring_time = 0;
+static unsigned long last_ring_millis = 0;
 
 // ring_silence_interval: the minimum interval between completion (or interruption) of one ring
 // and starting the next.
-static unsigned ring_silence_interval = 2000;
+static const unsigned ring_silence_interval = 2000;
+static const unsigned ambience_silence_interval = 10000;
 
 // Forward declaration for the state transition function.
 static void goto_state(Station_Info *station, enum Station_States next_state);
@@ -63,9 +60,9 @@ idle_state(struct Station_Info *station)
   {
     goto_state(station, RING_WAITING);
   }
-  else if (station->answered())
+  else if (station->off_hook())
   {
-    goto_state( station, TALKING );
+    goto_state(station, TALKING);
   }
 }
 
@@ -85,13 +82,13 @@ ring_waiting_enter(struct Station_Info *station)
 void
 ring_waiting_state(struct Station_Info *station)
 {
-  // When we are in RING_WAITING, the station should be being CALLED, but not yet ANSWERED
+  // When we are in RING_WAITING, the station should be being CALLED, but not yet OFF_HOOK
   if (!station->called())
   {
     // Caller hung up -- go back to IDLE
     goto_state (station, IDLE);
   }
-  else if (station->answered())
+  else if (station->off_hook())
   {
     goto_state (station, TALKING);
   }
@@ -100,9 +97,6 @@ ring_waiting_state(struct Station_Info *station)
 void
 ring_waiting_exit(struct Station_Info *station)
 {
-  // We are leaving RING_WAITING so pick the next station to ring, if any
-  if (next_ringer == station)
-    next_ringer = 0;
 }
 
 void
@@ -123,7 +117,7 @@ ring_playing_state(struct Station_Info *station)
     return;
   }
 
-  if (station->answered())
+  if (station->off_hook())
   {
     // Called station answered
     goto_state(station, TALKING);
@@ -138,7 +132,7 @@ void
 ring_playing_exit(struct Station_Info *station)
 {
   current_ringer = 0;
-  last_ring_time = millis();
+  last_ring_millis = millis();
 }
 
 void
@@ -150,7 +144,7 @@ talking_enter(struct Station_Info *station)
 void
 talking_state(struct Station_Info *station)
 {
-  if ((!station->called()) || (!station->answered()))
+  if ((!station->called()) || (!station->off_hook()))
     goto_state(station, HANGUP_WAIT);
 }
 
@@ -168,7 +162,7 @@ hangup_wait_enter(struct Station_Info *station)
 void
 hangup_wait_state(struct Station_Info *station)
 {
-  if ((!station->called()) && (!station->answered()))
+  if ((!station->called()) && (!station->off_hook()))
     goto_state(station, IDLE);
 }
 
@@ -225,24 +219,66 @@ goto_state(struct Station_Info *station, Station_States next_state)
 void
 choose_next_ringer()
 {
+  const unsigned long now_millis = millis();
+  const signed long since_last_ring = now_millis - last_ring_millis;
+
+
+  // Has it been long enough since the last ring?
+  bool long_enough = ((ring_silence_interval < since_last_ring) && (since_last_ring < LONG_MAX));
+  if (!long_enough)
+    return;
+
+  // Scan for "normal" (non ambience) stations that could ring
   unsigned next_age = 0;
-  next_ringer = 0;
+  Station_Info *next_ringer = 0;
+  bool all_normal_stations_idle = true;
   for (int ii = 0; ii < num_stations; ii++)
   {
-    if (stations[ii].state() != RING_WAITING)
-      continue;
+    Station_Info * const station = &stations[ii];
+    if (station->is_ambience()) continue;
+    if (station->state() != IDLE) all_normal_stations_idle = false;
+    if (station->state() != RING_WAITING) continue;
 
-    const unsigned station_age = stations[ii].waiting_msec();
-    if ((next_ringer == 0) || (station_age > next_age))
+    const unsigned station_age = station->waiting_msec();
+    if (station_age > next_age)
     {
       // This one is a candidate for next_ringer
-      next_ringer = &stations[ii];
+      next_ringer = station;
       next_age = station_age;
     }
   }
+
+  long_enough = ((ambience_silence_interval < since_last_ring) && (since_last_ring < LONG_MAX));
+  if (false && stations[5].state() == RING_WAITING) {
+    Serial.print("next_ringer="); Serial.print(reinterpret_cast<uintptr_t>(next_ringer));
+    Serial.print(" next_age="); Serial.print(next_age);
+    Serial.print(" since_last_ring="); Serial.print(since_last_ring);
+    Serial.print(" age="); Serial.print(stations[5].waiting_msec());
+    Serial.print(" test="); Serial.print(long_enough);
+    Serial.println();
+  }
+  if (all_normal_stations_idle  && long_enough)
+  {
+    for (int ii = 0; ii < num_stations; ii++)
+    {
+      Station_Info * const station = &stations[ii];
+      if (!station->is_ambience()) continue;
+      if (station->state() != RING_WAITING) continue;
+  
+      const unsigned station_age = station->waiting_msec();
+      if (station_age > next_age)
+      {
+        // This one is a candidate for next_ringer
+        next_ringer = station;
+        next_age = station_age;
+      }
+    }
+  }
+  
   if (next_ringer)
   {
     Serial.print("station "); Serial.print(next_ringer->station_code()); Serial.print(" will ring next"); Serial.println();
+    goto_state(next_ringer, RING_PLAYING);
   }
 }
 
@@ -267,13 +303,6 @@ run_station_states()
     (*state_cb)(station);
   }
 
-  if (!next_ringer)
+  if (!current_ringer)
     choose_next_ringer();
-
-  // If there is a "next_ringer", see if we can let it start ringing
-  if ((next_ringer != 0) && (current_ringer == 0) && ((millis() - last_ring_time) > ring_silence_interval))
-  {
-    goto_state(next_ringer, RING_PLAYING);
-    next_ringer = 0;
-  }
 }

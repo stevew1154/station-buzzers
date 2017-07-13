@@ -15,34 +15,24 @@
 #include "station_info.h"
 #include "Arduino.h"
 #include "morse.h"
-
-struct Station_Info stations[] = {
-  // state, pulsed_call, called, answered, buzz, active, random_period_sec, code
-  {   IDLE,     false,       A0,        8,    2,    LOW,                 0, "ND" }, // Viaduct
-  {   IDLE,     true,        A1,        9,    3,    LOW,                 0, "GE" }, // Evitts
-  {   IDLE,     false,       A2,       10,    4,    LOW,                 0, "KY" }, // Keyser
-  {   IDLE,     false,       A3,       11,    5,    LOW,                 0, "CO" }, // McKenxie
-  {   IDLE,     false,       A4,       12,    6,    LOW,                 0, "P"  }, // Piedmont
-
-  // This demonstrates an "ambiance" station which will buzz it's code at a random interval
-  // between 2/3 and 4/3 of the "random_period_sec". This station doesn't need "answered" or "called" pins
-  //{   IDLE,     false,       -1,       -1,    7,    LOW,                 5, "DS" }, // Dispatcher
-};
-const int num_stations = sizeof(stations)/sizeof(stations[0]);
+#include <limits.h>
 
 void Station_Info::enter_idle()
 {
-  is_called_ = is_answered_ = false;
-  called_millis_ = answered_millis_ = millis();
-  morse_.setup(pin_buzzer_, pin_active_==HIGH);
+  called_latch_ = false;
+  called_debounce_ = off_hook_debounce_ = false;
+  called_millis_   = off_hook_millis_   = millis();
+  morse_.setup(buzzer_pin_, buzzer_active_==HIGH);
   if (is_ambience())
   {
-    next_call_millis_ = millis() + random(2000L*random_period_sec_/3, 4000L*random_period_sec_/3);
+    // Make up the time that we will next play an ambience message
+    next_call_millis_ = millis() + random(2000L*timeout_secs_/3, 4000L*timeout_secs_/3);
   }
   else
   {
-    pinMode(pin_called_, INPUT_PULLUP);
-    pinMode(pin_answered_, INPUT_PULLUP);
+    // Make our input pins inputs.
+    pinMode(called_pin_, INPUT_PULLUP);
+    pinMode(off_hook_pin_, INPUT_PULLUP);
   }
   state_ = IDLE;
 }
@@ -64,8 +54,8 @@ void Station_Info::enter_ring_waiting()
 
 void Station_Info::enter_ring_playing()
 {
-  state_ = RING_PLAYING;
   morse_.start(station_code_);
+  state_ = RING_PLAYING;
 }
 
 void Station_Info::enter_talking()
@@ -76,70 +66,92 @@ void Station_Info::enter_talking()
 
 void Station_Info::enter_hangup_wait()
 {
+  // Stop our morse player (shouldn't be running).
   morse_.cancel();
+
+  // Momentary stations become need to clear their latched called status
+  // when they hang up
+  called_latch_ = false;
+    
   state_ = HANGUP_WAIT;
+
 }
 
 bool Station_Info::called()
 {
+  const unsigned long now_millis = millis();
+  
   // A "random ambience" station gets called at a random time selected
   // when the station enters IDLE state, and stays "called" until it
   // finishes ringing one time.  This is all managed in enter_ring_waiting()
-  if( is_ambience() )
-    return millis() > next_call_millis_;
+  if (is_ambience()) {
+    // Deal with unwrapping for those cases the layout stays on for more than 24.8 days
+    signed long diff_ring = (now_millis - next_call_millis_);
+    return (0 < diff_ring && diff_ring < LONG_MAX);
+  }
 
   // Debounce the input, looking for when the pin goes active
+  const signed long diff_called = (now_millis - called_millis_);
+  bool is_called = (digitalRead(called_pin_) == called_active_);
+  bool called_changed = ((is_called != called_debounce_) && (20 < diff_called) && (diff_called < LONG_MAX));
+  called_debounce_ = is_called;
 
-  const bool was_called = is_called_;
-  const bool is_called = (digitalRead(pin_called_) == STATION_CALLED);
-  const unsigned long now_millis = millis();
-  bool called_changed = (is_called != was_called) && ((now_millis - called_millis_) > 20);
-
-  // Special logic for stations which are "pulsed_called". For these stations, we want to
-  // become called only when (state_ == STATE_IDLE)
-  if (pulsed_called_ && called_changed && (state_ != IDLE))
-  {
-    // ignore the input transition
-    called_changed = false;
+  if (!is_momentary()) {
+    if (called_changed) {
+      Serial.print(station_code_); Serial.print(" is ");
+      Serial.print(is_called ? "called" : "not called");
+      Serial.println();      
+      called_millis_ = now_millis;
+    }
+    return is_called;
   }
 
-  if (called_changed)
-  {
-    called_millis_ = millis();
-    is_called_ = is_called;
-    Serial.print(station_code_); Serial.print(" is ");
-    Serial.print(is_called_ ? "called" : "not called");
-    Serial.println();
+  // Special logic for stations which are "momentary".
+    
+  // First, if we have been called for too long, we timeout.
+  if (called_latch_ && (1000L*timeout_secs_ <= diff_called) && (diff_called < LONG_MAX)) {
+    Serial.print("Station ");
+    Serial.print(station_code_);
+    Serial.println(" timed out");
+    called_latch_ = false;
+    return false;
   }
 
+  // Second, we only want to act on called becoming active when we are in state IDLE
+  if (called_changed && is_called && (state_ == IDLE))
+  {
+    Serial.print("Station ");
+    Serial.print(station_code_);
+    Serial.println(" is called");
+    called_millis_ = now_millis;
+    called_latch_ = true;
+  }
   // Return our debounced is_called_state
-  return is_called_;
+  return called_latch_;
 }
 
-bool Station_Info::answered()
-{
-  // The "random" ambiance stations never get answered
+bool Station_Info::off_hook()
+{  
+  // The "random" ambiance stations never go off_hook
   if (is_ambience())
     return false;
 
-  // Debounce state changes on pin_answered_
-  const bool was_answered = is_answered_;
-  const bool is_answered = (digitalRead(pin_answered_) == STATION_ANSWERED);
-  if ((is_answered != was_answered) && ((millis() - answered_millis_) > 20))
+  // Debounce state changes on off_hook_pin_
+  const bool was_off_hook = off_hook_debounce_;
+  const bool is_off_hook = (digitalRead(off_hook_pin_) == off_hook_active_);
+  const unsigned long now_millis = millis();
+  const signed long diff_off_hook = (now_millis - off_hook_millis_);
+  off_hook_debounce_ = is_off_hook;
+  
+  if ((is_off_hook != was_off_hook) && (20 <= diff_off_hook) && (diff_off_hook < LONG_MAX))
   {
-    // React to change on "answered"
-    answered_millis_ = millis();
-    is_answered_ = is_answered;
+    // React to change on "off_hook"
+    off_hook_millis_ = now_millis;
     Serial.print(station_code_); Serial.print(" goes ");
-    Serial.print(is_answered ? "off" : "on");
+    Serial.print(is_off_hook ? "off" : "on");
     Serial.print(" hook"); Serial.println();
   }
 
-  if (pulsed_called_ && is_answered_ && is_called_) {
-    is_called_ = false;
-    Serial.print(station_code_); Serial.print(" is not called");
-    Serial.println();
-  }
-  // Return the value in the debounced is_answered_ state variable
-  return is_answered_;
+  // Return the the debounced hook state variable
+  return is_off_hook;
 }

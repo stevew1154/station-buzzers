@@ -33,36 +33,22 @@
 #include "station_info.h"
 #include "station_states.h"
 
-const char version[] = "v1.1";
+const char version[] = "v2.0";
 
-class PinFlipper {
-  int           pin;
-  unsigned      interval;
-  int           value;
-  unsigned long last_flip;
+struct Station_Info stations[] = {
+  //                       buzzer       called       off_hook     timeout
+  //  station_type,        pin,active,  pin,active,  pin,active,  seconds,   station_code_
+  {   STATION_NORMAL,      8,HIGH,        A0,LOW,       2,LOW,      0,       "ND" }, // Viaduct
+  {   STATION_NORMAL,      9,HIGH,        A1,LOW,       3,LOW,      0,       "GE" }, // Evitts
+  {   STATION_NORMAL,     10,HIGH,        A2,LOW,       4,LOW,      0,       "KY" }, // Keyser
+  {   STATION_MOMENTARY,  11,HIGH,        A3,LOW,       5,LOW,     30,       "CO" }, // McKenxie
+  {   STATION_NORMAL,     12,HIGH,        A5,LOW,       6,LOW,      0,       "P"  }, // Piedmont
 
- public:
-  PinFlipper(int pin, unsigned interval)
-      : pin(pin),
-        interval(interval),
-        value(0),
-        last_flip(0)
-  {
-    pinMode(pin, OUTPUT);
-    flip();
-  }
-  void flip()
-  {
-    if ((millis() - last_flip) > interval)
-    {
-      value = 1 - value;
-      digitalWrite(pin, value);
-      last_flip = millis();
-    }
-  }
+  // This demonstrates an "ambiance" station which will buzz it's code at a random interval
+  // between 2/3 and 4/3 of the "random_period_sec". This station doesn't need "answered" or "called" pins
+  {   STATION_AMBIENCE,   13,HIGH,        -1,LOW,     -1,LOW,      30,       "DS" }, // Dispatcher
 };
-
-PinFlipper status_led(13, 1000);
+const int num_stations = sizeof(stations)/sizeof(stations[0]);
 
 void setup()
 {
@@ -76,9 +62,5 @@ void setup()
 
 void loop()
 {
-  status_led.flip();
-
   run_station_states();
-
-  delay(10);
 }
