@@ -33,6 +33,9 @@ enum Station_Type {
   STATION_AMBIENCE
 };
 
+#define ANALOG_IN ((uint8_t) 0x80)
+#define ANALOG_LOW (ANALOG_IN | LOW)
+#define ANALOG_HIGH (ANALOG_IN | HIGH)
 
 struct Station_Info {
   //////////////////////////////////////////////////////////////////////////
@@ -71,6 +74,8 @@ struct Station_Info {
   bool               off_hook_debounce_;
   unsigned long      off_hook_millis_;
 
+  String             ambience_message_;
+  
   //////////////////////////////////////////////////////////////////////////
   // Member methods
   //////////////////////////////////////////////////////////////////////////
@@ -93,7 +98,9 @@ struct Station_Info {
   void buzzer_off() { digitalWrite(buzzer_pin_, (buzzer_active_ == HIGH) ? LOW : HIGH ); }
 };
 
-extern struct Station_Info stations[];
+extern const struct Station_Info stations[];
 extern const int num_stations;
+extern const char * const ambience_messages[] PROGMEM;
+extern const int num_ambience_messages;
 
 #endif

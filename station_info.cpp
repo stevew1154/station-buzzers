@@ -22,17 +22,19 @@ void Station_Info::enter_idle()
   called_latch_ = false;
   called_debounce_ = off_hook_debounce_ = false;
   called_millis_   = off_hook_millis_   = millis();
-  morse_.setup(buzzer_pin_, buzzer_active_==HIGH);
-  if (is_ambience())
-  {
+  morse_.setup(buzzer_pin_, buzzer_active_ == HIGH);
+  if (is_ambience()) {
     // Make up the time that we will next play an ambience message
-    next_call_millis_ = millis() + random(2000L*timeout_secs_/3, 4000L*timeout_secs_/3);
-  }
-  else
-  {
-    // Make our input pins inputs.
-    pinMode(called_pin_, INPUT_PULLUP);
-    pinMode(off_hook_pin_, INPUT_PULLUP);
+    const int ambience_idx = random(0, num_ambience_messages);
+    ambience_message_ = reinterpret_cast<const __FlashStringHelper *>(pgm_read_word(&ambience_messages[ambience_idx]));
+    
+    next_call_millis_ = millis() + random(2000L * timeout_secs_ / 3, 4000L * timeout_secs_ / 3);
+  } else {
+    // Make our digital input pins inputs.
+    if ((called_active_ & ANALOG_IN) == 0)
+      pinMode(called_pin_, INPUT_PULLUP);
+    if ((off_hook_active_ & ANALOG_IN) == 0)
+      pinMode(off_hook_pin_, INPUT_PULLUP);
   }
   state_ = IDLE;
 }
@@ -54,7 +56,12 @@ void Station_Info::enter_ring_waiting()
 
 void Station_Info::enter_ring_playing()
 {
-  morse_.start(station_code_);
+  if (is_ambience()) {
+    morse_.start(ambience_message_.c_str());
+    Serial.println(ambience_message_);
+  } else {
+    morse_.start(station_code_);
+  }
   state_ = RING_PLAYING;
 }
 
@@ -72,15 +79,26 @@ void Station_Info::enter_hangup_wait()
   // Momentary stations become need to clear their latched called status
   // when they hang up
   called_latch_ = false;
-    
+
   state_ = HANGUP_WAIT;
 
+}
+
+// read an input pin as either analog or digital
+static  inline bool read_input_pin(uint8_t pin, uint8_t active)
+{
+  if (active & ANALOG_IN) {
+    uint16_t value = analogRead(pin);
+    return (value > 511) ? (active == ANALOG_HIGH) : (active == ANALOG_LOW);
+  } else {
+    return digitalRead(pin) == active;
+  }
 }
 
 bool Station_Info::called()
 {
   const unsigned long now_millis = millis();
-  
+
   // A "random ambience" station gets called at a random time selected
   // when the station enters IDLE state, and stays "called" until it
   // finishes ringing one time.  This is all managed in enter_ring_waiting()
@@ -91,38 +109,40 @@ bool Station_Info::called()
   }
 
   // Debounce the input, looking for when the pin goes active
+  
   const signed long diff_called = (now_millis - called_millis_);
-  bool is_called = (digitalRead(called_pin_) == called_active_);
+  bool is_called = read_input_pin(called_pin_, called_active_);
   bool called_changed = ((is_called != called_debounce_) && (20 < diff_called) && (diff_called < LONG_MAX));
   called_debounce_ = is_called;
 
   if (!is_momentary()) {
     if (called_changed) {
-      Serial.print(station_code_); Serial.print(" is ");
-      Serial.print(is_called ? "called" : "not called");
-      Serial.println();      
+      Serial.print(station_code_); Serial.print(F(" is "));
+      Serial.println(is_called ? F("called") : F("not called"));
       called_millis_ = now_millis;
     }
     return is_called;
   }
 
   // Special logic for stations which are "momentary".
-    
+
   // First, if we have been called for too long, we timeout.
-  if (called_latch_ && (1000L*timeout_secs_ <= diff_called) && (diff_called < LONG_MAX)) {
-    Serial.print("Station ");
-    Serial.print(station_code_);
-    Serial.println(" timed out");
-    called_latch_ = false;
-    return false;
+  if (called_latch_ && (state_ != RING_PLAYING) && (timeout_secs_ != 0)) 
+  {
+    if ((1000L * timeout_secs_ <= diff_called) && (diff_called < LONG_MAX)) {
+      Serial.print(F("Station "));
+      Serial.print(station_code_);
+      Serial.println(F(" timed out"));
+      called_latch_ = false;
+      return false;
+    }
   }
 
   // Second, we only want to act on called becoming active when we are in state IDLE
-  if (called_changed && is_called && (state_ == IDLE))
-  {
-    Serial.print("Station ");
+  if (called_changed && is_called && (state_ == IDLE)) {
+    Serial.print(F("Station "));
     Serial.print(station_code_);
-    Serial.println(" is called");
+    Serial.println(F(" is called"));
     called_millis_ = now_millis;
     called_latch_ = true;
   }
@@ -131,25 +151,24 @@ bool Station_Info::called()
 }
 
 bool Station_Info::off_hook()
-{  
+{
   // The "random" ambiance stations never go off_hook
   if (is_ambience())
     return false;
 
   // Debounce state changes on off_hook_pin_
   const bool was_off_hook = off_hook_debounce_;
-  const bool is_off_hook = (digitalRead(off_hook_pin_) == off_hook_active_);
+  const bool is_off_hook = read_input_pin(off_hook_pin_, off_hook_active_);
   const unsigned long now_millis = millis();
   const signed long diff_off_hook = (now_millis - off_hook_millis_);
   off_hook_debounce_ = is_off_hook;
-  
-  if ((is_off_hook != was_off_hook) && (20 <= diff_off_hook) && (diff_off_hook < LONG_MAX))
-  {
+
+  if ((is_off_hook != was_off_hook) && (20 <= diff_off_hook) && (diff_off_hook < LONG_MAX)) {
     // React to change on "off_hook"
     off_hook_millis_ = now_millis;
-    Serial.print(station_code_); Serial.print(" goes ");
-    Serial.print(is_off_hook ? "off" : "on");
-    Serial.print(" hook"); Serial.println();
+    Serial.print(station_code_); Serial.print(F(" goes "));
+    Serial.print(is_off_hook ? F("off") : F("on"));
+    Serial.println(F(" hook"));
   }
 
   // Return the the debounced hook state variable

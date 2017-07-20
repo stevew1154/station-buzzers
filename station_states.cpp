@@ -56,12 +56,9 @@ idle_enter(struct Station_Info *station)
 void
 idle_state(struct Station_Info *station)
 {
-  if (station->called())
-  {
+  if (station->called()) {
     goto_state(station, RING_WAITING);
-  }
-  else if (station->off_hook())
-  {
+  } else if (station->off_hook()) {
     goto_state(station, TALKING);
   }
 }
@@ -83,13 +80,10 @@ void
 ring_waiting_state(struct Station_Info *station)
 {
   // When we are in RING_WAITING, the station should be being CALLED, but not yet OFF_HOOK
-  if (!station->called())
-  {
+  if (!station->called()) {
     // Caller hung up -- go back to IDLE
     goto_state (station, IDLE);
-  }
-  else if (station->off_hook())
-  {
+  } else if (station->off_hook()) {
     goto_state (station, TALKING);
   }
 }
@@ -109,16 +103,14 @@ ring_playing_enter(struct Station_Info *station)
 void
 ring_playing_state(struct Station_Info *station)
 {
-  if (!station->called())
-  {
+  if (!station->called()) {
     // Caller hung up -- go back to IDLE
     // N.B. this aborts he playing of the station code
     goto_state(station, IDLE);
     return;
   }
 
-  if (station->off_hook())
-  {
+  if (station->off_hook()) {
     // Called station answered
     goto_state(station, TALKING);
     return;
@@ -191,14 +183,13 @@ void
 goto_state(struct Station_Info *station, Station_States next_state)
 {
   Station_States curr_state = station->state();
-  if (curr_state != next_state)
-  {
+  if (curr_state != next_state) {
     Serial.print(millis(),DEC);
-    Serial.print(" ");
+    Serial.print(F(" "));
     Serial.print(station->station_code());
-    Serial.print(" changes state ");
+    Serial.print(F(" changes state "));
     Serial.print(state_names[curr_state]);
-    Serial.print("->");
+    Serial.print(F("->"));
     Serial.println(state_names[next_state]);
 
 
@@ -232,16 +223,14 @@ choose_next_ringer()
   unsigned next_age = 0;
   Station_Info *next_ringer = 0;
   bool all_normal_stations_idle = true;
-  for (int ii = 0; ii < num_stations; ii++)
-  {
+  for (int ii = 0; ii < num_stations; ii++) {
     Station_Info * const station = &stations[ii];
     if (station->is_ambience()) continue;
     if (station->state() != IDLE) all_normal_stations_idle = false;
     if (station->state() != RING_WAITING) continue;
 
     const unsigned station_age = station->waiting_msec();
-    if (station_age > next_age)
-    {
+    if (station_age > next_age) {
       // This one is a candidate for next_ringer
       next_ringer = station;
       next_age = station_age;
@@ -250,24 +239,20 @@ choose_next_ringer()
 
   long_enough = ((ambience_silence_interval < since_last_ring) && (since_last_ring < LONG_MAX));
   if (false && stations[5].state() == RING_WAITING) {
-    Serial.print("next_ringer="); Serial.print(reinterpret_cast<uintptr_t>(next_ringer));
-    Serial.print(" next_age="); Serial.print(next_age);
-    Serial.print(" since_last_ring="); Serial.print(since_last_ring);
-    Serial.print(" age="); Serial.print(stations[5].waiting_msec());
-    Serial.print(" test="); Serial.print(long_enough);
-    Serial.println();
+    Serial.print(F("next_ringer=")); Serial.print(reinterpret_cast<uintptr_t>(next_ringer));
+    Serial.print(F(" next_age=")); Serial.print(next_age);
+    Serial.print(F(" since_last_ring=")); Serial.print(since_last_ring);
+    Serial.print(F(" age=")); Serial.print(stations[5].waiting_msec());
+    Serial.print(F(" test=")); Serial.println(long_enough);
   }
-  if (all_normal_stations_idle  && long_enough)
-  {
-    for (int ii = 0; ii < num_stations; ii++)
-    {
+  if (all_normal_stations_idle  && long_enough) {
+    for (int ii = 0; ii < num_stations; ii++) {
       Station_Info * const station = &stations[ii];
       if (!station->is_ambience()) continue;
       if (station->state() != RING_WAITING) continue;
   
       const unsigned station_age = station->waiting_msec();
-      if (station_age > next_age)
-      {
+      if (station_age > next_age) {
         // This one is a candidate for next_ringer
         next_ringer = station;
         next_age = station_age;
@@ -275,9 +260,8 @@ choose_next_ringer()
     }
   }
   
-  if (next_ringer)
-  {
-    Serial.print("station "); Serial.print(next_ringer->station_code()); Serial.print(" will ring next"); Serial.println();
+  if (next_ringer) {
+    Serial.print(F("station ")); Serial.print(next_ringer->station_code()); Serial.println(F(" will ring next"));
     goto_state(next_ringer, RING_PLAYING);
   }
 }
@@ -285,8 +269,7 @@ choose_next_ringer()
 void
 init_station_states()
 {
-  for (int ii = 0 ; ii < num_stations; ii++)
-  {
+  for (int ii = 0 ; ii < num_stations; ii++) {
     Station_Info *station = &stations[ii];
     idle_enter(station);
   }
@@ -296,8 +279,7 @@ void
 run_station_states()
 {
   // Run each station through its state machine
-  for (int ii = 0; ii < num_stations; ii++)
-  {
+  for (int ii = 0; ii < num_stations; ii++) {
     Station_Info *station = &stations[ii];
     State_Callback state_cb = callback_table[station->state()].state_callback;
     (*state_cb)(station);

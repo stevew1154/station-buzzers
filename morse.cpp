@@ -24,10 +24,10 @@ bool morse_table_initialized = false;
 static void
 initialize_morse_table()
 {
-  if(! morse_table_initialized)
-  {
-    for (int ii = 0; ii < 128; ii++)
+  if (!morse_table_initialized) {
+    for (int ii = 0; ii < 128; ii++) {
       morse_table[ii] = 0;
+    }
     morse_table[' '] = " ";
     morse_table['A'] = ".-";
     morse_table['B'] = "-...";
@@ -88,12 +88,12 @@ initialize_morse_table()
 
 
 MorseBuzzer::MorseBuzzer()
-    : state_(PLAYING_DONE),
-      pin_(-1),
-      active_hi_(true),
-      text_(0),
-      morse_(0),
-      verbosity_(0)
+: state_(PLAYING_DONE),
+  pin_(-1),
+  active_hi_(true),
+  text_(0),
+  morse_(0),
+  verbosity_(0)
 {
   initialize_morse_table();
 }
@@ -106,29 +106,29 @@ MorseBuzzer::~MorseBuzzer()
 void
 MorseBuzzer::buzzer_off()
 {
-  if( pin_ != -1 )
-    digitalWrite( pin_, active_hi_ ? LOW : HIGH );
+  if (pin_ != -1)
+    digitalWrite(pin_, active_hi_ ? LOW : HIGH);
 }
 
 void
 MorseBuzzer::buzzer_on()
 {
-  if( pin_ != -1 )
-    digitalWrite( pin_, active_hi_ ? HIGH : LOW );
+  if (pin_ != -1)
+    digitalWrite(pin_, active_hi_ ? HIGH : LOW);
 }
 
 void
-MorseBuzzer::setup( int pin, boolean active_hi )
+MorseBuzzer::setup(int pin, boolean active_hi)
 {
   pin_  = pin;
   active_hi_ = active_hi;
-  pinMode( pin_, OUTPUT );
+  pinMode(pin_, OUTPUT);
   buzzer_off();
   buzzer_off();
 }
 
 void
-MorseBuzzer::start( const char *text )
+MorseBuzzer::start(const char *text)
 {
   text_ = text;
   morse_ = 0;
@@ -146,13 +146,10 @@ MorseBuzzer::cancel()
 bool
 MorseBuzzer::next_char()
 {
-  while(1)
-  {
+  while (1) {
     byte curr_char = (*text_++) & 0x7f;
-    if (curr_char == '\0')
-    {
-      if (verbosity_ > 0)
-      {
+    if (curr_char == '\0') {
+      if (verbosity_ > 0) {
         Serial.println("morse eom");
       }
 
@@ -165,14 +162,12 @@ MorseBuzzer::next_char()
 
     // Now lookup the Morse pattern for the current character
     morse_ = morse_table[curr_char];
-    if (morse_ == 0)
-    {
+    if (morse_ == 0) {
       // No morse patter to match this character, so skip to next
       continue;
     }
 
-    if (verbosity_ > 0)
-    {
+    if (verbosity_ > 0) {
       Serial.print("morse.next_char() '");
       Serial.print(static_cast<char>(curr_char));
       Serial.print("' -> ");
@@ -188,8 +183,7 @@ bool
 MorseBuzzer::next_morse_bit()
 {
   char morse_bit = *morse_++;
-  switch( morse_bit )
-  {
+  switch (morse_bit) {
     case '\0':
       // End of current character
       return next_char();
@@ -221,18 +215,17 @@ MorseBuzzer::next_morse_bit()
   }
 
   // If this is the last morse bit of this character (next bit is nul), add the inter-character gap to the off_time
-  if( *morse_ == '\0' )
+  if (*morse_ == '\0')
     gap_time_ += 3*dot_time;
 
-  if( buzz_time_ > 0 )
+  if (buzz_time_ > 0)
     buzzer_on();
   state_ = PLAYING_BUZZ;
   ref_millis_ = millis();
-  if (verbosity_ > 1)
-  {
+  if (verbosity_ > 1) {
     Serial.print( ref_millis_) ;
     Serial.print(" morse on for ");
-    Serial.println( buzz_time_ );
+    Serial.println(buzz_time_);
   }
   return true;
 }
@@ -240,8 +233,7 @@ MorseBuzzer::next_morse_bit()
 bool
 MorseBuzzer::still_playing()
 {
-  if (state_ == PLAYING_DONE)
-  {
+  if (state_ == PLAYING_DONE) {
     if (verbosity_ > 0)
       Serial.println("morse -- playing done");
     return false;
@@ -250,17 +242,14 @@ MorseBuzzer::still_playing()
   // Compute time elapsed since our "ref_millis"
   unsigned elapsed = millis() - ref_millis_;
 
-  if (state_ == PLAYING_BUZZ)
-  {
+  if (state_ == PLAYING_BUZZ) {
     // We are playing the buzz, is it time to turn off?
-    if (elapsed >= buzz_time_)
-    {
+    if (elapsed >= buzz_time_) {
       // Time to turn off
       buzzer_off();
       state_ = PLAYING_GAP;
       ref_millis_ = millis();
-      if (verbosity_ > 1)
-      {
+      if (verbosity_ > 1) {
         Serial.print(ref_millis_);
         Serial.print(" morse off for ");
         Serial.println(gap_time_);
