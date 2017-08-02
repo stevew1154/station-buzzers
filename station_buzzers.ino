@@ -33,6 +33,7 @@
 #include "station_info.h"
 #include "station_states.h"
 #include "avr/pgmspace.h"
+#include "DebugSerial.h"
 
 const char version[] = "v2.0";
 
@@ -70,6 +71,29 @@ const char version[] = "v2.0";
 // or HIGH. Also, your circuit must provide an external pull-up (ANALOG_LOW) or pull-down
 // (ANALOG_HIGH) resistor. I.e. if your called switch connects pin A6 to ground, specify it as
 // A6,ANALOG_LOW in the table and provide an external pull-up resistor (1K Ohm should work well).
+
+// MRCS Buzzer Board rev 2
+//
+// The second-generation buzzer board supports 7 stations plus an ambience buzzer
+#define MRCS_REV2_TABLE
+#ifdef MMRCS_REV2_TABLE
+const struct Station_Info stations[] = {
+  //                         buzzer       called      off_hook     timeout   station
+  //  station_type,        pin,active,  pin,active,  pin,active,   seconds,   code
+  {   STATION_MOMENTARY,    13, HIGH,      A0, LOW,       0, LOW,      0,       "AA"  },
+  {   STATION_MOMENTARY,    12, HIGH,      A1, LOW,       1, LOW,      0,       "BB"  }, 
+  {   STATION_MOMENTARY,    11, HIGH,      A2, LOW,       2, LOW,      0,       "CC"  },
+  {   STATION_MOMENTARY,    10, HIGH,      A3, LOW,       3, LOW,      0,       "DD"  },
+  {   STATION_MOMENTARY,     9, HIGH,      A4, LOW,       4, LOW,      0,       "EE"  },
+  {   STATION_MOMENTARY,     8, HIGH,      A5, LOW,       5, LOW,      0,       "FF"  },
+  {   STATION_MOMENTARY,     7, HIGH,      A6, LOW,      A7, LOW,      0,       "GG"  },
+
+  // This demonstrates an "ambiance" station which will buzz it's code at a random interval between
+  // 2/3 and 4/3 of the "timeout_sec". This station doesn't need "answered" or "called" pins so they
+  // are set to -1.
+  {   STATION_AMBIENCE,      6, HIGH,      -1, LOW,     -1, LOW,      60,       "MM"  },
+};
+#endif
 
 // David Parks Cumberland West
 //
@@ -135,10 +159,10 @@ const int num_ambience_messages = sizeof(ambience_messages) / sizeof(ambience_me
 
 void setup()
 {
-  Serial.begin(9600);
+  DebugSerial_begin(9600);
   delay(5000);
-  Serial.print(F("Station Buzzers "));
-  Serial.println(version);
+  DebugSerial_print(F("Station Buzzers "));
+  DebugSerial_println(version);
 
   init_station_states();
 }

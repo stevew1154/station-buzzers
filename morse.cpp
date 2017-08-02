@@ -15,6 +15,7 @@
 
 #include "morse.h"
 #include "Arduino.h"
+#include "DebugSerial.h"
 
 static const unsigned dot_time = 100; // milliseconds
 
@@ -150,7 +151,7 @@ MorseBuzzer::next_char()
     byte curr_char = (*text_++) & 0x7f;
     if (curr_char == '\0') {
       if (verbosity_ > 0) {
-        Serial.println("morse eom");
+        DebugSerial_println("morse eom");
       }
 
       // Natural end of message so we are done
@@ -168,10 +169,10 @@ MorseBuzzer::next_char()
     }
 
     if (verbosity_ > 0) {
-      Serial.print("morse.next_char() '");
-      Serial.print(static_cast<char>(curr_char));
-      Serial.print("' -> ");
-      Serial.println(morse_);
+      DebugSerial_print("morse.next_char() '");
+      DebugSerial_print(static_cast<char>(curr_char));
+      DebugSerial_print("' -> ");
+      DebugSerial_println(morse_);
     }
 
     // Start the first bit of the new character
@@ -223,9 +224,9 @@ MorseBuzzer::next_morse_bit()
   state_ = PLAYING_BUZZ;
   ref_millis_ = millis();
   if (verbosity_ > 1) {
-    Serial.print( ref_millis_) ;
-    Serial.print(" morse on for ");
-    Serial.println(buzz_time_);
+    DebugSerial_print( ref_millis_) ;
+    DebugSerial_print(" morse on for ");
+    DebugSerial_println(buzz_time_);
   }
   return true;
 }
@@ -235,7 +236,7 @@ MorseBuzzer::still_playing()
 {
   if (state_ == PLAYING_DONE) {
     if (verbosity_ > 0)
-      Serial.println("morse -- playing done");
+      DebugSerial_println("morse -- playing done");
     return false;
   }
 
@@ -250,9 +251,9 @@ MorseBuzzer::still_playing()
       state_ = PLAYING_GAP;
       ref_millis_ = millis();
       if (verbosity_ > 1) {
-        Serial.print(ref_millis_);
-        Serial.print(" morse off for ");
-        Serial.println(gap_time_);
+        DebugSerial_print(ref_millis_);
+        DebugSerial_print(" morse off for ");
+        DebugSerial_println(gap_time_);
       }
     }
     return true;

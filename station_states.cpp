@@ -16,6 +16,7 @@
 #include <limits.h>
 #include "station_states.h"
 #include "station_info.h"
+#include "DebugSerial.h"
 
 // Function callback types for the enter / state / exit conditions of each state
 typedef void (*Enter_Callback)(Station_Info *station);
@@ -184,13 +185,13 @@ goto_state(struct Station_Info *station, Station_States next_state)
 {
   Station_States curr_state = station->state();
   if (curr_state != next_state) {
-    Serial.print(millis(),DEC);
-    Serial.print(F(" "));
-    Serial.print(station->station_code());
-    Serial.print(F(" changes state "));
-    Serial.print(state_names[curr_state]);
-    Serial.print(F("->"));
-    Serial.println(state_names[next_state]);
+    DebugSerial_print(millis(),DEC);
+    DebugSerial_print(F(" "));
+    DebugSerial_print(station->station_code());
+    DebugSerial_print(F(" changes state "));
+    DebugSerial_print(state_names[curr_state]);
+    DebugSerial_print(F("->"));
+    DebugSerial_println(state_names[next_state]);
 
 
     // Does current state have an exit_callback?
@@ -239,11 +240,11 @@ choose_next_ringer()
 
   long_enough = ((ambience_silence_interval < since_last_ring) && (since_last_ring < LONG_MAX));
   if (false && stations[5].state() == RING_WAITING) {
-    Serial.print(F("next_ringer=")); Serial.print(reinterpret_cast<uintptr_t>(next_ringer));
-    Serial.print(F(" next_age=")); Serial.print(next_age);
-    Serial.print(F(" since_last_ring=")); Serial.print(since_last_ring);
-    Serial.print(F(" age=")); Serial.print(stations[5].waiting_msec());
-    Serial.print(F(" test=")); Serial.println(long_enough);
+    DebugSerial_print(F("next_ringer=")); DebugSerial_print(reinterpret_cast<uintptr_t>(next_ringer));
+    DebugSerial_print(F(" next_age=")); DebugSerial_print(next_age);
+    DebugSerial_print(F(" since_last_ring=")); DebugSerial_print(since_last_ring);
+    DebugSerial_print(F(" age=")); DebugSerial_print(stations[5].waiting_msec());
+    DebugSerial_print(F(" test=")); DebugSerial_println(long_enough);
   }
   if (all_normal_stations_idle  && long_enough) {
     for (int ii = 0; ii < num_stations; ii++) {
@@ -261,7 +262,7 @@ choose_next_ringer()
   }
   
   if (next_ringer) {
-    Serial.print(F("station ")); Serial.print(next_ringer->station_code()); Serial.println(F(" will ring next"));
+    DebugSerial_print(F("station ")); DebugSerial_print(next_ringer->station_code()); DebugSerial_println(F(" will ring next"));
     goto_state(next_ringer, RING_PLAYING);
   }
 }

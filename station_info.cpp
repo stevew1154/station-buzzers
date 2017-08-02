@@ -16,6 +16,7 @@
 #include "Arduino.h"
 #include "morse.h"
 #include <limits.h>
+#include "DebugSerial.h"
 
 void Station_Info::enter_idle()
 {
@@ -58,7 +59,7 @@ void Station_Info::enter_ring_playing()
 {
   if (is_ambience()) {
     morse_.start(ambience_message_.c_str());
-    Serial.println(ambience_message_);
+    DebugSerial_println(ambience_message_);
   } else {
     morse_.start(station_code_);
   }
@@ -117,8 +118,8 @@ bool Station_Info::called()
 
   if (!is_momentary()) {
     if (called_changed) {
-      Serial.print(station_code_); Serial.print(F(" is "));
-      Serial.println(is_called ? F("called") : F("not called"));
+      DebugSerial_print(station_code_); DebugSerial_print(F(" is "));
+      DebugSerial_println(is_called ? F("called") : F("not called"));
       called_millis_ = now_millis;
     }
     return is_called;
@@ -130,9 +131,9 @@ bool Station_Info::called()
   if (called_latch_ && (state_ != RING_PLAYING) && (timeout_secs_ != 0)) 
   {
     if ((1000L * timeout_secs_ <= diff_called) && (diff_called < LONG_MAX)) {
-      Serial.print(F("Station "));
-      Serial.print(station_code_);
-      Serial.println(F(" timed out"));
+      DebugSerial_print(F("Station "));
+      DebugSerial_print(station_code_);
+      DebugSerial_println(F(" timed out"));
       called_latch_ = false;
       return false;
     }
@@ -140,9 +141,9 @@ bool Station_Info::called()
 
   // Second, we only want to act on called becoming active when we are in state IDLE
   if (called_changed && is_called && (state_ == IDLE)) {
-    Serial.print(F("Station "));
-    Serial.print(station_code_);
-    Serial.println(F(" is called"));
+    DebugSerial_print(F("Station "));
+    DebugSerial_print(station_code_);
+    DebugSerial_println(F(" is called"));
     called_millis_ = now_millis;
     called_latch_ = true;
   }
@@ -166,9 +167,9 @@ bool Station_Info::off_hook()
   if ((is_off_hook != was_off_hook) && (20 <= diff_off_hook) && (diff_off_hook < LONG_MAX)) {
     // React to change on "off_hook"
     off_hook_millis_ = now_millis;
-    Serial.print(station_code_); Serial.print(F(" goes "));
-    Serial.print(is_off_hook ? F("off") : F("on"));
-    Serial.println(F(" hook"));
+    DebugSerial_print(station_code_); DebugSerial_print(F(" goes "));
+    DebugSerial_print(is_off_hook ? F("off") : F("on"));
+    DebugSerial_println(F(" hook"));
   }
 
   // Return the the debounced hook state variable
