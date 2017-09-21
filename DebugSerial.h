@@ -23,6 +23,8 @@
 #undef WANT_REAL_SERIAL
 
 
+// The 32u4 based Leonardo boards have "Serial" defined in a way that communicates directly over USB
+// and leaves the D0/D1 pins completely available.
 #ifdef ARDUINO_AVR_LEONARDO
 #define WANT_REAL_SERIAL
 #endif

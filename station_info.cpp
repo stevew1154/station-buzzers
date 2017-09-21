@@ -153,7 +153,7 @@ bool Station_Info::called()
 
 bool Station_Info::off_hook()
 {
-  // The "random" ambiance stations never go off_hook
+  // The "random" ambience stations never go off_hook
   if (is_ambience())
     return false;
 

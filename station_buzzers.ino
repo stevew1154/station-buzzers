@@ -50,7 +50,7 @@ const char version[] = "v2.0";
 // called, and answered pins. The timeout value should specify the timeout in seconds. If set to
 // zero, the station will ring forever or until answered.
 //
-// To define an "ambience" station, set the "station_type" to STATION_AMBIENT, and the"called" and
+// To define an "ambience" station, set the "station_type" to STATION_AMBIENCE, and the"called" and
 // "off_hook" pins to -1. The timeout will then define a "base" time between random ambience
 // messages. The sketch will pick a random interval between 2/3 and 4/3 of this base time. It really
 // doesn't matter what you set the "station_code" to, as that field will only show up in debug
@@ -59,7 +59,7 @@ const char version[] = "v2.0";
 // Use of Arduino "analog" pins
 // ============================
 //
-// On most Arduino variants, the analog input pins are A0-A5 also fully capable of being digital
+// On most Arduino variants, the analog input pins A0-A5 are also fully capable of being digital
 // input or output pins. However, the A6 and A7 pins are a mixed bag. On the Leonardo and other
 // ATMEGA 32u4 based boards, A6 and A7 are muxed with other digital input pins so you probably 
 // don't want to use them by the names A6/A7. 
@@ -75,8 +75,8 @@ const char version[] = "v2.0";
 // MRCS Buzzer Board rev 2
 //
 // The second-generation buzzer board supports 7 stations plus an ambience buzzer
-#define MRCS_REV2_TABLE
-#ifdef MMRCS_REV2_TABLE
+#undef MRCS_REV2_TABLE
+#ifdef MRCS_REV2_TABLE
 const struct Station_Info stations[] = {
   //                         buzzer       called      off_hook     timeout   station
   //  station_type,        pin,active,  pin,active,  pin,active,   seconds,   code
@@ -88,9 +88,9 @@ const struct Station_Info stations[] = {
   {   STATION_MOMENTARY,     8, HIGH,      A5, LOW,       5, LOW,      0,       "FF"  },
   {   STATION_MOMENTARY,     7, HIGH,      A6, LOW,      A7, LOW,      0,       "GG"  },
 
-  // This demonstrates an "ambiance" station which will buzz it's code at a random interval between
-  // 2/3 and 4/3 of the "timeout_sec". This station doesn't need "answered" or "called" pins so they
-  // are set to -1.
+  // This demonstrates an "ambience" station which will buzz one of the random ambience messages
+  // at a random time between 2/3 and 4/3 of the "timeout_sec". This station doesn't need
+  // "answered" or "called" pins so they are set to -1. Also, the "station code' is ignored.
   {   STATION_AMBIENCE,      6, HIGH,      -1, LOW,     -1, LOW,      60,       "MM"  },
 };
 #endif
@@ -109,9 +109,9 @@ const struct Station_Info stations[] = {
   {   STATION_NORMAL,     11, HIGH,      A3, LOW,       5, LOW,      0,       "CO" }, // McKenxie
   {   STATION_NORMAL,     12, HIGH,      A4, LOW,       6, LOW,      0,       "P"  }, // Piedmont
 
-  // This demonstrates an "ambiance" station which will buzz it's code at a random interval between
-  // 2/3 and 4/3 of the "timeout_sec". This station doesn't need "answered" or "called" pins so they
-  // are set to -1.
+  // This demonstrates an "ambience" station which will buzz one of the random ambience messages
+  // at a random time between 2/3 and 4/3 of the "timeout_sec". This station doesn't need
+  // "answered" or "called" pins so they are set to -1. Also, the "station code' is ignored.
   {   STATION_AMBIENCE,   13, HIGH,        -1, LOW,     -1, LOW,      60,       "DS" }, // Dispatcher
 };
 #endif
